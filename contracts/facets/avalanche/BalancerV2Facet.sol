@@ -333,14 +333,6 @@ contract BalancerV2Facet is ReentrancyGuardKeccak, OnlyOwnerOrInsolvent, IBalanc
         bytes32 poolSymbol = tokenManager.tokenAddressToSymbol(pool);
         DiamondStorageLib.addOwnedAsset(poolSymbol, pool);
 
-        emit BptUnstaked(
-            msg.sender,
-            poolSymbol,
-            pool,
-            IERC20(pool).balanceOf(address(this)) - initialDepositTokenBalance,
-            initialGaugeBalance - newGaugeBalance,
-            block.timestamp
-        );
     }
 
     function claimRewardsBalancerV2(bytes32 poolId) external nonReentrant onlyOwner recalculateAssetsExposure remainsSolvent {
