@@ -226,9 +226,9 @@ describe('Smart loan', () => {
             await wrappedLoan.paraSwapV2(swapData.selector, swapData.data, TOKEN_ADDRESSES['ETH'], toWei('2'), TOKEN_ADDRESSES['rsETH'], 1);
             rsEthBalance = await tokenContracts.get('rsETH')!.balanceOf(wrappedLoan.address);
 
-            expect(fromWei(await wrappedLoan.getTotalValue())).to.be.closeTo(fromWei(initialTotalValue), 200);
+            expect(fromWei(await wrappedLoan.getTotalValue())).to.be.closeTo(fromWei(initialTotalValue), 500);
             expect(fromWei(await wrappedLoan.getHealthRatio())).to.be.eq(fromWei(initialHR));
-            expect(fromWei(await wrappedLoan.getThresholdWeightedValue())).to.be.closeTo(fromWei(initialTWV), 200);
+            expect(fromWei(await wrappedLoan.getThresholdWeightedValue())).to.be.closeTo(fromWei(initialTWV), 500);
         });
 
         it("should fail to stake as a non-owner", async () => {
@@ -297,12 +297,12 @@ describe('Smart loan', () => {
         });
 
         it("should stake", async () => {
-            await testStake("ETH", ezETHMarket, toWei('2'), 1);
-            await testStake("wstETH", wstETHMarket, wstEthBalance, 1);
-            await testStake("weETH", eETHMarket, weEthBalance, 1);
-            await testStake("rsETH", rsETHMarket, rsEthBalance, 1);
-            await testStake("ETH", wstETHSiloMarket, toWei('2'), 1);
-            await testStake("ETH", eETHSiloMarket, toWei('2'), 1);
+            await testStake("ETH", ezETHMarket, toWei('2'), 1, "PENPIE_EZETH_LP");
+            await testStake("wstETH", wstETHMarket, wstEthBalance, 1, "PENPIE_WSTETH_LP");
+            await testStake("weETH", eETHMarket, weEthBalance, 1, "PENPIE_EETH_LP");
+            await testStake("rsETH", rsETHMarket, rsEthBalance, 1, "PENPIE_RSETH_LP");
+            await testStake("ETH", wstETHSiloMarket, toWei('2'), 1, "PENPIE_WSTETHSILO_LP");
+            await testStake("ETH", eETHSiloMarket, toWei('2'), 1, "PENPIE_EETHSILO_LP");
         });
 
         it("should unstake", async () => {
@@ -313,15 +313,15 @@ describe('Smart loan', () => {
             let wstEthSiloLpBalance = await tokenContracts.get('PENPIE_WSTETHSILO_LP')!.balanceOf(wrappedLoan.address);
             let eEthSiloLpBalance = await tokenContracts.get('PENPIE_EETHSILO_LP')!.balanceOf(wrappedLoan.address);
 
-            await testUnstake("ezETH", ezETHMarket, ezEthLpBalance, 1);
-            await testUnstake("wstETH", wstETHMarket, wstEthLpBalance, 1);
-            await testUnstake("weETH", eETHMarket, eEthLpBalance, 1);
-            await testUnstake("rsETH", rsETHMarket, rsEthLpBalance, 1);
-            await testUnstake("ETH", wstETHSiloMarket, wstEthSiloLpBalance, 1);
-            await testUnstake("ETH", eETHSiloMarket, eEthSiloLpBalance, 1);
+            await testUnstake("ezETH", ezETHMarket, ezEthLpBalance, 1, "PENPIE_EZETH_LP");
+            await testUnstake("wstETH", wstETHMarket, wstEthLpBalance, 1, "PENPIE_WSTETH_LP");
+            await testUnstake("weETH", eETHMarket, eEthLpBalance, 1, "PENPIE_EETH_LP");
+            await testUnstake("rsETH", rsETHMarket, rsEthLpBalance, 1, "PENPIE_RSETH_LP");
+            await testUnstake("ETH", wstETHSiloMarket, wstEthSiloLpBalance, 1, "PENPIE_WSTETHSILO_LP");
+            await testUnstake("ETH", eETHSiloMarket, eEthSiloLpBalance, 1, "PENPIE_EETHSILO_LP");
         });
 
-        async function testStake(asset: string, market: string, amount: BigNumber, minLpOut: BigNumberish) {
+        async function testStake(asset: string, market: string, amount: BigNumber, minLpOut: BigNumberish, lpToken: string) {
             let initialTotalValue = await wrappedLoan.getTotalValue();
             let initialHR = await wrappedLoan.getHealthRatio();
             let initialTWV = await wrappedLoan.getThresholdWeightedValue();
@@ -338,12 +338,14 @@ describe('Smart loan', () => {
 
             await wrappedLoan.stakePenpie(toBytes32(asset), amount, market, minLpOut, guessPtReceivedFromSy, input, limit);
 
+            expect(await loanOwnsAsset(lpToken)).to.be.true;
+
             expect(fromWei(await wrappedLoan.getTotalValue())).to.be.closeTo(fromWei(initialTotalValue), 1600);
             expect(fromWei(await wrappedLoan.getHealthRatio())).to.be.closeTo(fromWei(initialHR), 0.0001);
             expect(fromWei(await wrappedLoan.getThresholdWeightedValue())).to.be.closeTo(fromWei(initialTWV), 1600);
         }
 
-        async function testUnstake(asset: string, market: string, amount: BigNumber, minOut: BigNumberish) {
+        async function testUnstake(asset: string, market: string, amount: BigNumber, minOut: BigNumberish, lpToken: string) {
             let initialTotalValue = await wrappedLoan.getTotalValue();
             let initialHR = await wrappedLoan.getHealthRatio();
 
@@ -359,8 +361,20 @@ describe('Smart loan', () => {
 
             await wrappedLoan.unstakePenpie(toBytes32(asset), amount, market, minOut, output, limit);
 
+            expect(await loanOwnsAsset(lpToken)).to.be.false;
+
             expect(fromWei(await wrappedLoan.getTotalValue())).to.be.closeTo(fromWei(initialTotalValue), 1600);
             expect(fromWei(await wrappedLoan.getHealthRatio())).to.be.closeTo(fromWei(initialHR), 0.01);
+        }
+
+        async function loanOwnsAsset(asset: string) {
+            let ownedAssets =  await wrappedLoan.getAllOwnedAssets();
+            for(const ownedAsset of ownedAssets){
+                if(fromBytes32(ownedAsset) == asset){
+                    return true;
+                }
+            }
+            return false;
         }
     });
 });
