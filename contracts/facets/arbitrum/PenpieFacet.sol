@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../../ReentrancyGuardKeccak.sol";
-import "../../interfaces/IVectorFinanceStaking.sol";
 import {DiamondStorageLib} from "../../lib/DiamondStorageLib.sol";
 import "../../interfaces/arbitrum/IPendleRouter.sol";
 import "../../interfaces/arbitrum/IPendleDepositHelper.sol";
@@ -40,7 +39,7 @@ contract PenpieFacet is ReentrancyGuardKeccak, OnlyOwnerOrInsolvent {
         IPendleRouter.ApproxParams memory guessPtReceivedFromSy,
         IPendleRouter.TokenInput memory input,
         IPendleRouter.LimitOrderData memory limit
-    ) external onlyOwner nonReentrant recalculateAssetsExposure remainsSolvent {
+    ) external onlyOwner nonReentrant remainsSolvent {
         address lpToken = _getPendleLpToken(market);
         ITokenManager tokenManager = DeploymentConstants.getTokenManager();
         IERC20 token = IERC20(tokenManager.getAssetAddress(asset, false));
@@ -83,13 +82,7 @@ contract PenpieFacet is ReentrancyGuardKeccak, OnlyOwnerOrInsolvent {
         uint256 minOut,
         IPendleRouter.TokenOutput memory output,
         IPendleRouter.LimitOrderData memory limit
-    )
-        external
-        onlyOwnerOrInsolvent
-        recalculateAssetsExposure
-        nonReentrant
-        returns (uint256)
-    {
+    ) external onlyOwnerOrInsolvent nonReentrant returns (uint256) {
         address lpToken = _getPendleLpToken(market);
         uint256 netTokenOut;
 
